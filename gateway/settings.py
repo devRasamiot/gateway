@@ -30,7 +30,8 @@ ALLOWED_HOSTS = [
 'http://213.232.124.169',
 'localhost',
 'https://192.168.1.227',
-'192.168.1.227'
+'192.168.1.227',
+'127.0.0.1'
 
 ]
 
@@ -44,11 +45,11 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
+
     'logs',
     'rest_framework',
     'corsheaders',
-    
+
 ]
 
 # CORS_ORIGIN_ALLOW_ALL = True
