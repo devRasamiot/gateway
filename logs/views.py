@@ -26,12 +26,12 @@ class LiveDataViewSet (viewsets.ModelViewSet):
     queryset = LiveData.objects.all()
 
 
-def checkDiff(currData, prevData, prev_time, present_time):  
-    diffdata = currData - prevData  
+def checkDiff(currData, prevData, prev_time, present_time):
+    diffdata = currData - prevData
     if diffdata < 0 :
         diffdata += cupSize
 # ###############################################################################################################################################################
-#  important : 
+#  important :
 #       the invalid data is going to bhe replaced with a negetive large number but not inf, sql couldn't store it
 #       and the sum could be positive and cause bug
 # ###############################################################################################################################################################
@@ -45,7 +45,7 @@ def checkDiff(currData, prevData, prev_time, present_time):
 
 @api_view(['POST'])
 def add_data(request):
-    
+
     if request.method == 'POST':
         if(len(request.data)==0):
             return Response({"no data recieved"},status=status.HTTP_400_BAD_REQUEST)
@@ -64,12 +64,12 @@ def add_data(request):
                     livedata = LiveData.objects.get(mac_addr=data['mac_addr'], pin=data['pin'])
                     prev_data = livedata.sensor_data
 
-                    
-                    prev_time_updated = (livedata.sendDataTime) 
-                    prev_time_updated = prev_time_updated.replace(tzinfo=None)      
-                    # print(prev_time_updated, type(prev_time_updated))      
+
+                    prev_time_updated = (livedata.sendDataTime)
+                    prev_time_updated = prev_time_updated.replace(tzinfo=None)
+                    # print(prev_time_updated, type(prev_time_updated))
                     present_time = datetime.datetime.fromtimestamp(data['sendDataTime'])
-                    
+
                     diff = checkDiff(float(data['sensor_data']),float(prev_data), prev_time_updated, present_time)
                     data['diff_data'] = diff
                     data['updated_at'] = datetime.datetime.now()
@@ -96,9 +96,62 @@ def add_data(request):
                         return Response(live_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
                 log_serializer = LogDataSerializer(data=data)
-                if log_serializer.is_valid():   
+                if log_serializer.is_valid():
                     log_serializer.save()
                 else:
                     return Response(log_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         return Response({"data created"}, status=status.HTTP_201_CREATED)
 
+
+@api_view(['POST'])
+def logsInPeriod(request):
+    if request.method == 'POST':
+        if ('start_time' in request.data) and ('end_time' in request.data) and ('dur_time' in request.data):
+            if (request.data['start_time'] and request.data['end_time'] and request.data['dur_time']):
+                response =[]
+                time = parse_datetime(request.data['start_time'])
+                time2 = parse_datetime(request.data['end_time'])
+
+                try:
+                    # logs_in_shift = (LogData.objects
+                    #                     .values('mac_addr','pin', 'sendDataTime')
+                    #                     .annotate(sum_of_diff = Sum('diff_data'))
+                    #                     )
+                    # response.append((logs_in_shift))
+
+                    ####
+
+                    while time < time2:
+                        temp_time = time + datetime.timedelta(minutes=float(request.data['dur_time']))
+                        #print(LogData.objects.values('mac_addr','pin'))
+
+                        logs_in_period = (LogData.objects
+                                        .values('mac_addr','pin','sendDataTime')
+                                        .filter(sendDataTime__range = (time, temp_time))
+                                        .annotate(sum_of_diff = Sum('diff_data'))
+                                        )
+
+                        time = temp_time
+                        if len(logs_in_period) > 0 :
+                            response.append((logs_in_period))
+                        # if logs_in_shift :
+                        #     response.append((logs_in_shift))
+                    ####
+
+                    # logs_in_shift = (LogData.objects.filter(sendDataTime__range = (time, time2))
+                    #                     .extra(select={'sendDataTime_slice': "FLOOR (EXTRACT (EPOCH FROM sendDataTime) / '900' )"})
+                    #                     .values('mac_addr','pin', 'sendDataTime_slice')
+                    #                     .annotate(sum_of_diff = Sum('diff_data'))
+                    #                     )
+                    # response.append((logs_in_shift))
+
+                    ####
+
+                    return Response((response), status=status.HTTP_200_OK)
+                except:
+                    traceback.print_exc()
+                    return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            else:
+                return Response({"no time specified"},status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response({"no time specified"},status=status.HTTP_400_BAD_REQUEST)
