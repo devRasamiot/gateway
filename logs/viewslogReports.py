@@ -76,11 +76,14 @@ def logsInPeriodData(request):
                 response =[]
                 time = parse_datetime(request.data['start_time'])
                 time2 = parse_datetime(request.data['end_time'])
+                print("log before try")
                 try:
                     logs_in_period = (LogData.objects
                                         .values('mac_addr','pin', 'sensor_data', 'sendDataTime')
                                         .filter(sendDataTime__range = (time, time2))
                                         )
+
+                    print("log before append")
                     response.append((logs_in_period))   
                     return Response((logs_in_period), status=status.HTTP_200_OK)
                 except:
